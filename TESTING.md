@@ -6,6 +6,8 @@ VR player body and once with FRIK if it is part of the target load order.
 ## Startup
 
 - Fallout 4 VR 1.2.72 starts through F4SEVR 0.6.21.
+- The complete F4SEVR `Data\Scripts` set is installed; a binary-only install
+  leaves the v1.4 worn-item, looting, and power-armor functions unable to link.
 - `KnockoutFramework.log` reports a validated VR hook and successful load.
 - The MCM/holotape opens and every v1.4 setting remains available.
 - An unsupported executable fails closed without patching memory.

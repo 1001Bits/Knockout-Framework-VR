@@ -33,6 +33,12 @@ _Process ProcessDamageFrame = nullptr;
 
 constexpr uintptr_t kProcessDamageFrameCallsiteRva = 0x00DB176D;
 constexpr uintptr_t kProcessDamageFrameRva = 0x00E526D0;
+// Official F4SEVR 0.6.21 was built with the desktop 1.10.138 runtime token
+// even though its loader pins Fallout4VR.exe 1.2.72. This is the token that
+// stock F4SEVR actually supplies to plugins; the nominal VR token is not used.
+// The live callsite and target are also validated byte-for-byte before patching.
+constexpr UInt32 kF4SEVR0621ReportedRuntime = RUNTIME_VERSION_1_10_138;
+static_assert(kF4SEVR0621ReportedRuntime == 0x010A08A0, "Unexpected F4SEVR runtime token");
 constexpr std::array<UInt8, 13> kExpectedCallsite = {
 	0xE8, 0x5E, 0x0F, 0x0A, 0x00, 0x48, 0x85, 0xFF, 0x74, 0x36, 0x48, 0x8B, 0xCF
 };
@@ -410,10 +416,11 @@ extern "C" {
 			return false;
 		}
 
-		if (f4se->runtimeVersion != RUNTIME_VR_VERSION_1_2_72) {
-			_FATALERROR("ERROR: Unsupported runtime 0x%08X; Fallout 4 VR 1.2.72 is required.", f4se->runtimeVersion);
+		if (f4se->runtimeVersion != kF4SEVR0621ReportedRuntime) {
+			_FATALERROR("ERROR: Unsupported F4SE runtime token 0x%08X; Fallout 4 VR 1.2.72 with F4SEVR is required.", f4se->runtimeVersion);
 			return false;
 		}
+		_MESSAGE("Accepted F4SEVR runtime token 0x%08X for Fallout 4 VR 1.2.72.", f4se->runtimeVersion);
 
 		if (f4se->f4seVersion < MAKE_EXE_VERSION(0, 6, 21)) {
 			_FATALERROR("ERROR: F4SEVR 0.6.21 or later is required (found 0x%08X).", f4se->f4seVersion);

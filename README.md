@@ -40,7 +40,8 @@ uses blackout/fade transitions without removing the underlying feature.
 ## Requirements
 
 - Fallout 4 VR 1.2.72
-- F4SEVR 0.6.21
+- F4SEVR 0.6.21, installed from the complete official archive including its
+  `Data\Scripts` PEX files (a binary-only install is insufficient)
 - Mod Configuration Menu is optional, as in the original mod
 
 ## Installation
@@ -74,8 +75,11 @@ requires independently verifying its callsite, target, ABI, and `HitData` layout
 The release process compiles the native DLL and modified Papyrus sources, analyzes
 and round-trips every replacement PEX, rebuilds and re-extracts the BA2, verifies
 that all paired-finisher assets remain present and unchanged, and inspects the DLL
-exports and dependencies. Real in-game VR testing is still required before treating
-the build as a public release.
+exports and dependencies. A private-desktop SteamVR null-HMD launch has also
+verified F4SEVR loading, the exact VR hook, MO2 virtual-file injection, the ESM/BA2,
+and clean Papyrus linking for Knockout Framework. The null driver exposes no
+tracked controllers, so actual knockout, interaction, respawn, and save/load
+gameplay still requires a headset/controller test before public release.
 
 ## Licensing and original assets
 
