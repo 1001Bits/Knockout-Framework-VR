@@ -2,6 +2,10 @@
 #include "f4se_common/BranchTrampoline.h"
 #include "f4se/PapyrusEvents.h"
 
+#include <array>
+#include <atomic>
+#include <cstring>
+#include <memory>
 #include <shlobj.h>
 
 #include "KnockoutFramework.h"
@@ -10,7 +14,7 @@
 #define PLUGIN_VERSION_MINOR	4
 #define PLUGIN_VERSION_BUILD	0
 
-#define PLUGIN_NAME		"Knockout Framework"
+#define PLUGIN_NAME		"Knockout Framework VR"
 #define FILE_NAME		"KnockoutFramework"
 #define BGS_PLUGIN_NAME	(std::string)"Knockout Framework.esm"
 #define PLUGIN_VERSION	((PLUGIN_VERSION_MAJOR * 10000) + (PLUGIN_VERSION_MINOR * 100) + PLUGIN_VERSION_BUILD)
@@ -20,29 +24,55 @@ PluginHandle					g_pluginHandle = kPluginHandle_Invalid;
 F4SEMessagingInterface			* g_messaging = nullptr;
 F4SEPapyrusInterface			* papyrusInterface = nullptr;
 
-/** Actor::ProcessDamageFrame
-sig: 48 8B C4 48 89 50 10 55 56 41 56 41 57
-address:
-v1.10.163: 0xE01630
-credit: kassent (https://github.com/kassent/FloatingDamage) */
-using _Process = void(*)(void *, DamageFrame *);
-RelocAddr<_Process>	ProcessDamageFrame = 0xE01630;
+/** Fallout 4 VR 1.2.72 Actor::DoHitMe(HitData&).
+	The callsite and target are checked byte-for-byte before the hook is installed.
+	The original target is decoded from the live CALL instead of being invoked via
+	a second hardcoded address. */
+using _Process = void(*)(Actor *, DamageFrame *);
+_Process ProcessDamageFrame = nullptr;
 
+constexpr uintptr_t kProcessDamageFrameCallsiteRva = 0x00DB176D;
+constexpr uintptr_t kProcessDamageFrameRva = 0x00E526D0;
+constexpr std::array<UInt8, 13> kExpectedCallsite = {
+	0xE8, 0x5E, 0x0F, 0x0A, 0x00, 0x48, 0x85, 0xFF, 0x74, 0x36, 0x48, 0x8B, 0xCF
+};
+constexpr std::array<UInt8, 13> kExpectedProcessPrologue = {
+	0x48, 0x8B, 0xC4, 0x48, 0x89, 0x50, 0x10, 0x55, 0x56, 0x41, 0x56, 0x41, 0x57
+};
+
+std::atomic<bool> g_gameFormsReady{ false };
 ModGlobals_Struct ModGlobals;
 ModKeywords_Struct ModKeywords;
 ModMiscForms_Struct ModMiscForms;
 
+struct HandleRefReleaser {
+	void operator()(TESObjectREFR * reference) const {
+		if (reference) {
+			reference->handleRefObject.DecRefHandle();
+		}
+	}
+};
+
+using ScopedHandleRef = std::unique_ptr<TESObjectREFR, HandleRefReleaser>;
+
 namespace Main {
 	DamageFrame * SetKnockoutStatus(DamageFrame * pDamageFrame) {
-		if (!pDamageFrame || pDamageFrame->unk94 == 0.0) return pDamageFrame;
+		if (!g_gameFormsReady.load(std::memory_order_acquire) || !pDamageFrame || pDamageFrame->totalDamage == 0.0f) return pDamageFrame;
 
-		NiPointer<TESObjectREFR> victim = nullptr;
-		NiPointer<TESObjectREFR> attacker = nullptr;
+		TESObjectREFR * victim = nullptr;
+		TESObjectREFR * attacker = nullptr;
+		UInt32 victimHandle = pDamageFrame->victimHandle;
+		UInt32 attackerHandle = pDamageFrame->attackerHandle;
 
-		if (pDamageFrame == nullptr
-			|| (LookupREFRByHandle((UInt32)pDamageFrame->victimHandle, victim), victim == nullptr) \
-			|| (LookupREFRByHandle((UInt32)pDamageFrame->attackerHandle, attacker), attacker == nullptr) \
-			|| victim->formType != FormType::kFormType_ACHR || attacker->formType != FormType::kFormType_ACHR) {
+		const bool victimFound = LookupREFRByHandle(&victimHandle, &victim);
+		ScopedHandleRef victimOwner(victim);
+		if (!victimFound || !victim || victim->formType != kFormType_ACHR) {
+			return pDamageFrame;
+		}
+
+		const bool attackerFound = LookupREFRByHandle(&attackerHandle, &attacker);
+		ScopedHandleRef attackerOwner(attacker);
+		if (!attackerFound || !attacker || attacker->formType != kFormType_ACHR) {
 			return pDamageFrame;
 		}
 
@@ -55,7 +85,7 @@ namespace Main {
 			}
 		}
 
-		if (pDamageFrame->instanceData) {
+		if (weaponForm && pDamageFrame->instanceData) {
 			weaponInstance = reinterpret_cast<TESObjectWEAP::InstanceData*>(pDamageFrame->instanceData);
 		} else if (weaponForm) {
 			weaponInstance = &weaponForm->weapData;
@@ -63,9 +93,8 @@ namespace Main {
 
 		UInt32 attackType = 0; // Ranged attack
 		if (pDamageFrame->attackData) {
-			if (pDamageFrame->damageSourceForm) {
-				TESObjectWEAP * tempWeap = reinterpret_cast<TESObjectWEAP*>(pDamageFrame->damageSourceForm);
-				if (tempWeap && tempWeap->weapData.ammo) attackType = 3; // Gun Bash
+			if (weaponForm) {
+				if (weaponForm->weapData.ammo) attackType = 3; // Gun Bash
 				else attackType = 1; // Melee weapon
 			} else attackType = 2; // Melee attack
 		}
@@ -73,10 +102,9 @@ namespace Main {
 		if (!KnockoutFramework::IsAttackKoEligible(attacker, victim, weaponForm, weaponInstance, attackType)) return pDamageFrame;
 		else {
 			float damagesMult = KnockoutFramework::GetDamagesMult(victim->formID == 0x14);
-			//_DMESSAGE("INFO: DamageFrame (BASE) | unk94 : %f | damage : %f | damage2 : %f", pDamageFrame->unk94, pDamageFrame->damage, pDamageFrame->damage2);
-			//_DMESSAGE("INFO: DamageFrame (MULT) | unk94 : %f | damage : %f | damage2 : %f", pDamageFrame->unk94 * damagesMult, pDamageFrame->damage * damagesMult, pDamageFrame->damage2 * damagesMult);
+			//_DMESSAGE("INFO: HitData | total: %f | physical: %f | health: %f", pDamageFrame->totalDamage, pDamageFrame->physicalDamage, pDamageFrame->healthDamage);
 
-			bool victim_alive = ((victim->actorValueOwner.GetValue(ModMiscForms.Health) - (pDamageFrame->damage2 * damagesMult)) > 0.0f ? true : false);
+			bool victim_alive = ((victim->actorValueOwner.GetValue(ModMiscForms.Health) - (pDamageFrame->healthDamage * damagesMult)) > 0.0f ? true : false);
 			if (!victim_alive) {
 				if (!KnockoutFramework::IsVictimKoEligible(victim, (victim->formID == 0x14)) \
 					|| !KnockoutFramework::IsAttackerKoEligible(attacker, (attacker->formID == 0x14))) {
@@ -89,7 +117,7 @@ namespace Main {
 
 				//_DMESSAGE("INFO: %s triggered Knockout event on %s because his theorical health reached %.4f.",
 				//	attacker->baseForm->GetFullName(), victim->baseForm->GetFullName(),
-				//	victim->actorValueOwner.GetValue(ModMiscForms.Health) - (pDamageFrame->damage2 * damagesMult));
+				//	victim->actorValueOwner.GetValue(ModMiscForms.Health) - (pDamageFrame->healthDamage * damagesMult));
 
 				struct KoEventData_Struct {
 					Actor * akVictim;
@@ -116,17 +144,18 @@ SimpleLock globalDamageLock;
 class ActorEx : public Actor {
 public:
 	static void ProcessDamageFrame_Hook(Actor * pObj, DamageFrame * pDamageFrame) {
-		globalDamageLock.Lock();
-		pDamageFrame = Main::SetKnockoutStatus(pDamageFrame);
+		{
+			SimpleLocker locker(&globalDamageLock);
+			pDamageFrame = Main::SetKnockoutStatus(pDamageFrame);
+		}
 		ProcessDamageFrame(pObj, pDamageFrame);
-		globalDamageLock.Release();
 	}
 };
 
 namespace Settings {
 	TESForm * GetFormFromIdentifier(const std::string & formIdentifier) {
 		UInt32 formId = 0;
-		if (formIdentifier.c_str() != "none") {
+		if (formIdentifier != "none") {
 			std::size_t pos = formIdentifier.find_first_of("|");
 			std::string modName = formIdentifier.substr(0, pos);
 			std::string modForm = formIdentifier.substr(pos + 1);
@@ -295,14 +324,65 @@ namespace Settings {
 		else _FATALERROR("ERROR: The 'KFActorCantKnockoutKeyword' (%s) keyword could not be found", string_form.c_str());
 	}
 
-	static void InitHooks() {
-		g_branchTrampoline.Write5Call(RELOC_RUNTIME_ADDR("E8 ? ? ? ? 48 85 FF 74 36 48 8B CF"), (uintptr_t)ActorEx::ProcessDamageFrame_Hook);
+	static bool ValidateGameForms() {
+		return ModMiscForms.Health && ModMiscForms.KFIsVictimKoEligiblePerk && ModMiscForms.KFIsAttackerKoEligiblePerk
+			&& ModGlobals.KFUnarmedEnabled && ModGlobals.KFBashEnabled && ModGlobals.KFCanKoPlayer
+			&& ModGlobals.KFCanKoHumans && ModGlobals.KFCanKoSuperMutants && ModGlobals.KFCanKoFeralGhoul
+			&& ModGlobals.KFCanKoOthers && ModGlobals.KFCanBeKoPlayer && ModGlobals.KFCanBeKoFollowers
+			&& ModGlobals.KFCanBeKoHumans && ModGlobals.KFCanBeKoSuperMutants && ModGlobals.KFCanBeKoFeralGhoul
+			&& ModGlobals.KFCanBeKoOthers && ModKeywords.WeaponTypeUnarmed && ModKeywords.QuickkeyMelee
+			&& ModKeywords.AnimsBayonet && ModKeywords.ActorTypeNPC && ModKeywords.ActorTypeSuperMutant
+			&& ModKeywords.ActorTypeFeralGhoul && ModKeywords.KFKnockedOutKeyword
+			&& ModKeywords.KFKnockoutTriggerKeyword && ModKeywords.KFWeaponCanKnockoutKeyword
+			&& ModKeywords.KFActorCantBeKnockedOutKeyword && ModKeywords.KFActorCantKnockoutKeyword;
 	}
 
+	static bool InitHooks() {
+		const uintptr_t moduleBase = reinterpret_cast<uintptr_t>(GetModuleHandleA(nullptr));
+		const uintptr_t callsite = moduleBase + kProcessDamageFrameCallsiteRva;
+		const uintptr_t expectedTarget = moduleBase + kProcessDamageFrameRva;
+
+		if (std::memcmp(reinterpret_cast<const void *>(callsite), kExpectedCallsite.data(), kExpectedCallsite.size()) != 0) {
+			_ERROR("Fallout4VR 1.2.72 damage callsite validation failed at RVA 0x%llX.",
+				static_cast<unsigned long long>(kProcessDamageFrameCallsiteRva));
+			return false;
+		}
+
+		SInt32 displacement = 0;
+		std::memcpy(&displacement, reinterpret_cast<const void *>(callsite + 1), sizeof(displacement));
+		const uintptr_t decodedTarget = callsite + 5 + displacement;
+		if (decodedTarget != expectedTarget ||
+			std::memcmp(reinterpret_cast<const void *>(decodedTarget), kExpectedProcessPrologue.data(), kExpectedProcessPrologue.size()) != 0) {
+			_ERROR("Fallout4VR 1.2.72 damage target validation failed (decoded RVA 0x%llX).",
+				static_cast<unsigned long long>(decodedTarget - moduleBase));
+			return false;
+		}
+
+		ProcessDamageFrame = reinterpret_cast<_Process>(decodedTarget);
+		if (!g_branchTrampoline.Write5Call(callsite, reinterpret_cast<uintptr_t>(ActorEx::ProcessDamageFrame_Hook))) {
+			_ERROR("Could not install the Fallout4VR damage call hook.");
+			ProcessDamageFrame = nullptr;
+			return false;
+		}
+
+		_MESSAGE("Installed VR damage hook: callsite RVA 0x%llX -> target RVA 0x%llX.",
+			static_cast<unsigned long long>(kProcessDamageFrameCallsiteRva),
+			static_cast<unsigned long long>(kProcessDamageFrameRva));
+		return true;
+	}
 	static void MessageCallback(F4SEMessagingInterface::Message* msg) {
 		switch (msg->type) {
 		case (F4SEMessagingInterface::kMessage_GameDataReady):
+			g_gameFormsReady.store(false, std::memory_order_release);
+			if (msg->data == nullptr) {
+				_MESSAGE("Game data is no longer ready; damage interception is paused.");
+				break;
+			}
 			DefineGameForms();
+			g_gameFormsReady.store(ValidateGameForms(), std::memory_order_release);
+			if (!g_gameFormsReady.load(std::memory_order_acquire)) {
+				_ERROR("Knockout Framework game forms were not resolved; damage interception will remain inactive.");
+			}
 			break;
 		default:
 			// No action
@@ -314,7 +394,7 @@ namespace Settings {
 extern "C" {
 	bool F4SEPlugin_Query(const F4SEInterface * f4se, PluginInfo * info) {
 		std::unique_ptr<char[]> sPath(new char[MAX_PATH]);
-		sprintf_s(sPath.get(), MAX_PATH, "%s%s.log", "\\My Games\\Fallout4\\F4SE\\", FILE_NAME);
+		sprintf_s(sPath.get(), MAX_PATH, "%s%s.log", "\\My Games\\Fallout4VR\\F4SE\\", FILE_NAME);
 		gLog.OpenRelative(CSIDL_MYDOCUMENTS, sPath.get());
 
 		_MESSAGE("%s library v%d.%d.%d - Loaded", PLUGIN_NAME, PLUGIN_VERSION_MAJOR, PLUGIN_VERSION_MINOR, PLUGIN_VERSION_BUILD);
@@ -324,11 +404,19 @@ extern "C" {
 		info->version = PLUGIN_VERSION;
 
 		g_pluginHandle = f4se->GetPluginHandle();
-		plugin_info.plugin_name = FILE_NAME;
-		plugin_info.runtime_version = f4se->runtimeVersion;
 
 		if (f4se->isEditor) {
 			_FATALERROR("WARNING: Plugin loaded in the editor, shutting down...");
+			return false;
+		}
+
+		if (f4se->runtimeVersion != RUNTIME_VR_VERSION_1_2_72) {
+			_FATALERROR("ERROR: Unsupported runtime 0x%08X; Fallout 4 VR 1.2.72 is required.", f4se->runtimeVersion);
+			return false;
+		}
+
+		if (f4se->f4seVersion < MAKE_EXE_VERSION(0, 6, 21)) {
+			_FATALERROR("ERROR: F4SEVR 0.6.21 or later is required (found 0x%08X).", f4se->f4seVersion);
 			return false;
 		}
 
@@ -353,12 +441,9 @@ extern "C" {
 			return false;
 		}
 
-		try {
-			sig_scan_timer timer;
-			Settings::InitHooks();
-		} catch (const no_result_exception & exception) {
-			_FATALERROR(exception.what());
-			MessageBoxA(nullptr, "ERROR: Signature scan failed, please update Knockout Framework.", PLUGIN_NAME, MB_ICONASTERISK);
+		if (!Settings::InitHooks()) {
+			_FATALERROR("ERROR: Fallout 4 VR damage hook validation failed.");
+			MessageBoxA(nullptr, "ERROR: Fallout 4 VR 1.2.72 damage hook validation failed. Knockout Framework VR was not loaded.", PLUGIN_NAME, MB_ICONASTERISK);
 			return false;
 		}
 

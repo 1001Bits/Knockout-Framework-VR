@@ -24,7 +24,7 @@ namespace KnockoutFramework
 			if ((attackType == 1 || attackType == 2) \
 				&& HasKeyword_Native(&weaponInstance->keywords->keywordBase, ModKeywords.WeaponTypeUnarmed) \
 				&& !HasKeyword_Native(&weaponInstance->keywords->keywordBase, ModKeywords.QuickkeyMelee)) {
-				return true; // Unarmed attack
+				return ((int)ModGlobals.KFUnarmedEnabled->value == 1); // Unarmed attack
 			}
 		}
 		if (weaponForm && &weaponForm->keyword) {
@@ -38,7 +38,7 @@ namespace KnockoutFramework
 			if ((attackType == 1 || attackType == 2) \
 				&& HasKeyword_Native(&weaponForm->keyword.keywordBase, ModKeywords.WeaponTypeUnarmed) \
 				&& !HasKeyword_Native(&weaponForm->keyword.keywordBase, ModKeywords.QuickkeyMelee)) {
-				return true; // Unarmed attack
+				return ((int)ModGlobals.KFUnarmedEnabled->value == 1); // Unarmed attack
 			}
 		}
 
@@ -142,9 +142,9 @@ namespace KnockoutFramework
 	DamageFrame * CancelDamages(DamageFrame * pDamageFrame, bool noDamages)
 	{
 		float final_damage = (noDamages ? 0.0 : 0.000001);
-		pDamageFrame->damage2 = final_damage;
-		pDamageFrame->damage = final_damage;
-		pDamageFrame->unk94 = final_damage;
+		pDamageFrame->healthDamage = final_damage;
+		pDamageFrame->physicalDamage = final_damage;
+		pDamageFrame->totalDamage = final_damage;
 		return pDamageFrame;
 	}
 }

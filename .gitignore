@@ -1,0 +1,13 @@
+# Visual Studio output
+/x64/
+/x64_v143/
+/KnockoutFramework/x64/
+/.vs/
+
+# Papyrus compiler diagnostics and generated output
+/Papyrus/Source/User/AST/
+/Papyrus/Compiled/
+
+# Local packaging output
+/build/
+/dist/

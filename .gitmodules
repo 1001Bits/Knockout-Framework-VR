@@ -1,0 +1,3 @@
+[submodule "external/f4sevr"]
+	path = external/f4sevr
+	url = https://github.com/1001Bits/f4sevr_neanka.git

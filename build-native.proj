@@ -1,0 +1,21 @@
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
+  </PropertyGroup>
+
+  <Target Name="Build">
+    <MSBuild
+      Projects="$(RepositoryRoot)KnockoutFramework\KnockoutFramework.vcxproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);Platform=$(Platform);SolutionDir=$(RepositoryRoot)" />
+  </Target>
+
+  <Target Name="Clean">
+    <MSBuild
+      Projects="$(RepositoryRoot)KnockoutFramework\KnockoutFramework.vcxproj"
+      Targets="Clean"
+      Properties="Configuration=$(Configuration);Platform=$(Platform);SolutionDir=$(RepositoryRoot)" />
+  </Target>
+</Project>
