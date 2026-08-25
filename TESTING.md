@@ -14,6 +14,10 @@ VR player body and once with FRIK if it is part of the target load order.
 
 ## Player paths
 
+- On a new Survival/Hardcore game, let a vanilla radroach repeatedly bite the
+  player. `UnarmedRadRoach` must retain its VR reach override, every hit must
+  return through the native damage hook without a CTD, and a lethal eligible hit
+  must proceed into the selected death-alternative scenario.
 - With Player Knockout disabled, ordinary melee, bash, unarmed, and paired
   finishers never leave movement, hands, menus, or combat locked.
 - With Player Knockout enabled, test nonlethal KO, lethal deferred death, save/load

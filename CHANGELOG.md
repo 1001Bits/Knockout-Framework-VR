@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.0-vr1.2
+
+- Fixed a deterministic native crash when an eligible unarmed, melee, or bash
+  hit reached the difficulty-damage calculation. The vendored F4SEVR helper
+  aliases the INI-preferences singleton to the game-settings collection and
+  traverses the wrong object layout.
+- Replaced both fragile settings lookups with Fallout 4 VR's own live difficulty
+  and health-multiplier functions. Survival continues to use the same `PCSV`
+  game settings as the desktop framework, including values changed by other
+  mods.
+- Added byte validation for both VR difficulty functions before the damage hook
+  is installed. A mismatched executable now fails closed instead of entering an
+  unsafe hit path.
+- Confirmed that `Fallout4_VR.esm` intentionally changes `UnarmedRadRoach`
+  reach from `0.68` to `0.17`. That override is preserved and is unrelated to
+  the crash.
+
 ## 1.4.0-vr1.1
 
 - Fixed startup with the official F4SEVR 0.6.21 build, which reports its

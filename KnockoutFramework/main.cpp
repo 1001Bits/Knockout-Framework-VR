@@ -348,6 +348,10 @@ namespace Settings {
 		const uintptr_t callsite = moduleBase + kProcessDamageFrameCallsiteRva;
 		const uintptr_t expectedTarget = moduleBase + kProcessDamageFrameRva;
 
+		if (!KnockoutFramework::ValidateVRDifficultyFunctions()) {
+			return false;
+		}
+
 		if (std::memcmp(reinterpret_cast<const void *>(callsite), kExpectedCallsite.data(), kExpectedCallsite.size()) != 0) {
 			_ERROR("Fallout4VR 1.2.72 damage callsite validation failed at RVA 0x%llX.",
 				static_cast<unsigned long long>(kProcessDamageFrameCallsiteRva));

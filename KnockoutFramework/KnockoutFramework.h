@@ -118,6 +118,8 @@ namespace KnockoutFramework
 
 	bool IsAttackerKoEligible(TESObjectREFR* attacker, bool isPlayer = false);
 
+	bool ValidateVRDifficultyFunctions();
+
 	float GetDamagesMult(bool isPlayer = false);
 
 	DamageFrame* CancelDamages(DamageFrame* pDamageFrame, bool noDamages = false);

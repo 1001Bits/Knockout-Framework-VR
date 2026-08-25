@@ -12,6 +12,9 @@ Papyrus API.
 
 - Ports the native `Actor::DoHitMe(HitData&)` interception to the verified VR
   1.2.72 callsite and full 0xE0 VR `HitData` layout.
+- Uses the engine's live VR difficulty and health-multiplier functions instead
+  of F4SEVR's unsafe INI/game-setting collection helpers; both functions are
+  byte-validated before the damage hook is installed.
 - Rejects every unsupported runtime and validates the live callsite and original
   function bytes before installing the hook.
 - Keeps all 25 paired-finisher victim animations and makes their custom KO/death
@@ -79,7 +82,9 @@ exports and dependencies. A private-desktop SteamVR null-HMD launch has also
 verified F4SEVR loading, the exact VR hook, MO2 virtual-file injection, the ESM/BA2,
 and clean Papyrus linking for Knockout Framework. The null driver exposes no
 tracked controllers, so actual knockout, interaction, respawn, and save/load
-gameplay still requires a headset/controller test before public release.
+gameplay still requires a headset/controller test before public release. A first
+headset test exposed and precisely diagnosed the F4SEVR settings crash fixed in
+vr1.2; the complete player/NPC matrix below still needs to be repeated.
 
 ## Licensing and original assets
 
