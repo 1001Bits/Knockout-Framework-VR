@@ -4,8 +4,11 @@ ScriptName KFIncomingMonitoringEffectScript Extends ActiveMagicEffect
 Bool CanRecover
 Bool PairedEventPending
 Bool BleedoutRecoveryOwned
+Bool EarlyPairedEventHandled
 Bool EventRegistrationClosing
 Bool PairedDeathEventRegistered
+Bool PairedKillStartEventRegistered
+Bool PairedBashStartEventRegistered
 Bool PairedVictimEventRegistered
 Bool RegistrationRetryPending
 Actor Victim
@@ -30,7 +33,13 @@ Function RegisterAnimationEvents()
   If !PairedDeathEventRegistered
     PairedDeathEventRegistered = Self.RegisterForAnimationEvent(Victim as ObjectReference, "pa_PairedKillMQ302DanseDeath") ; #DEBUG_LINE_NO:13
   EndIf
-  If PairedVictimEventRegistered && PairedDeathEventRegistered
+  If !PairedKillStartEventRegistered
+    PairedKillStartEventRegistered = Self.RegisterForAnimationEvent(Victim as ObjectReference, "KFVR_PairedKillStart")
+  EndIf
+  If !PairedBashStartEventRegistered
+    PairedBashStartEventRegistered = Self.RegisterForAnimationEvent(Victim as ObjectReference, "KFVR_PairedBashStart")
+  EndIf
+  If PairedVictimEventRegistered && PairedDeathEventRegistered && PairedKillStartEventRegistered && PairedBashStartEventRegistered
     Self.CancelTimer(97)
     RegistrationRetryPending = False
   Else
@@ -50,20 +59,39 @@ EndFunction
 Function FinishAnimationRegistration()
   EventRegistrationClosing = True
   Self.CancelTimer(97)
+  Self.CancelTimer(99)
   RegistrationRetryPending = False
+  EarlyPairedEventHandled = False
   If Victim
     Self.UnregisterForAnimationEvent(Victim as ObjectReference, "pa_PairedKillMQ302DanseDeathVictim")
     Self.UnregisterForAnimationEvent(Victim as ObjectReference, "pa_PairedKillMQ302DanseDeath")
+    Self.UnregisterForAnimationEvent(Victim as ObjectReference, "KFVR_PairedKillStart")
+    Self.UnregisterForAnimationEvent(Victim as ObjectReference, "KFVR_PairedBashStart")
   EndIf
   PairedVictimEventRegistered = False
   PairedDeathEventRegistered = False
+  PairedKillStartEventRegistered = False
+  PairedBashStartEventRegistered = False
   If ConfigScript
     Self.UnregisterForCustomEvent(ConfigScript, "UpdateMonitoringSpellEv")
   EndIf
 EndFunction
 
 Bool Function IsPairedKillEvent(String EventName)
-  Return EventName == "pa_PairedKillMQ302DanseDeathVictim" || EventName == "pa_PairedKillMQ302DanseDeath"
+  Return EventName == "pa_PairedKillMQ302DanseDeathVictim" || EventName == "pa_PairedKillMQ302DanseDeath" || EventName == "KFVR_PairedKillStart" || EventName == "KFVR_PairedBashStart"
+EndFunction
+
+Bool Function IsEarlyPairedKillEvent(String EventName)
+  Return EventName == "KFVR_PairedKillStart" || EventName == "KFVR_PairedBashStart"
+EndFunction
+
+Int Function GetPairedKillMoveType(String EventName)
+  If EventName == "pa_PairedKillMQ302DanseDeathVictim" || EventName == "KFVR_PairedKillStart"
+    Return 1
+  ElseIf EventName == "pa_PairedKillMQ302DanseDeath" || EventName == "KFVR_PairedBashStart"
+    Return 2
+  EndIf
+  Return 0
 EndFunction
 
 Function ReleaseOwnedBleedoutRecovery()
@@ -95,11 +123,21 @@ Actor Function ResolveResponsibleActor()
   Return ResponsibleActor
 EndFunction
 
-Function ResolvePairedKillNormally()
+Function ResolvePairedKillNormally(Actor ResponsibleActor)
   If !Victim || Victim.IsDead() || koframeworkfunctions.IsKnockedOut(Victim)
     Return
   EndIf
-  Victim.Kill(Self.ResolveResponsibleActor())
+  Victim.Kill(ResponsibleActor)
+EndFunction
+
+Function ResolvePairedKnockout(Int KillMoveType, Actor ResponsibleActor)
+  Bool Result = False
+  If ConfigScript.CanBeKnockedOut(Victim) && ResponsibleActor
+    Result = MainScript.KnockOutActor(Victim, ResponsibleActor, KillMoveType, False)
+  EndIf
+  If !Result && !Victim.IsDead() && !koframeworkfunctions.IsKnockedOut(Victim)
+    Self.ResolvePairedKillNormally(ResponsibleActor)
+  EndIf
 EndFunction
 
 Function FinishPairedEventWatchdog()
@@ -122,6 +160,8 @@ Function TriggerTimer(Int aiTimerID)
     Self.RegisterAnimationEvents()
   ElseIf aiTimerID == 98
     Self.FinishPairedEventWatchdog()
+  ElseIf aiTimerID == 99
+    EarlyPairedEventHandled = False
   ElseIf aiTimerID == 1 && Self.GetState() == "BleedingOut"
     Self.FinishBleedoutRecovery()
     Self.GotoState("")
@@ -156,25 +196,26 @@ Event OnTimer(Int aiTimerID)
 EndEvent
 
 Event OnAnimationEvent(ObjectReference akSource, String asEventName)
-  If akSource != Victim || !Self.IsPairedKillEvent(asEventName) || !Victim || Victim.IsDead() || PairedEventPending
+  If akSource != Victim || !Self.IsPairedKillEvent(asEventName) || !Victim || Victim.IsDead() || PairedEventPending || EarlyPairedEventHandled
     Return
   EndIf
+  Bool EarlyPairedEvent = Self.IsEarlyPairedKillEvent(asEventName)
   PairedEventPending = True
+  Actor ResponsibleActor = Self.ResolveResponsibleActor()
+  If EarlyPairedEvent
+    If !KFVRAnimationBridge.SkipPlayerPairedAnimation(Game.GetPlayer(), Victim)
+      PairedEventPending = False
+      Return
+    EndIf
+    If Victim != Game.GetPlayer()
+      ResponsibleActor = Game.GetPlayer()
+    EndIf
+    EarlyPairedEventHandled = True
+    Self.CancelTimer(99)
+    Self.StartTimer(10.0, 99)
+  EndIf
   Self.StartTimer(2.0, 98)
-  Int KillMoveType = 0 ; #DEBUG_LINE_NO:47
-  If asEventName == "pa_PairedKillMQ302DanseDeathVictim" ; #DEBUG_LINE_NO:48
-    KillMoveType = 1 ; #DEBUG_LINE_NO:49
-  ElseIf asEventName == "pa_PairedKillMQ302DanseDeath" ; #DEBUG_LINE_NO:50
-    KillMoveType = 2 ; #DEBUG_LINE_NO:51
-  EndIf
-  Bool Result = False
-  Actor Aggressor = Self.ResolveResponsibleActor()
-  If ConfigScript.CanBeKnockedOut(Victim) && Aggressor
-    Result = MainScript.KnockOutActor(Victim, Aggressor, KillMoveType, False) ; #DEBUG_LINE_NO:53
-  EndIf
-  If !Result && !Victim.IsDead() && !koframeworkfunctions.IsKnockedOut(Victim)
-    Self.ResolvePairedKillNormally()
-  EndIf
+  Self.ResolvePairedKnockout(Self.GetPairedKillMoveType(asEventName), ResponsibleActor)
 EndEvent
 
 Event OnAnimationEventUnregistered(ObjectReference akSource, String asEventName)
@@ -185,6 +226,10 @@ Event OnAnimationEventUnregistered(ObjectReference akSource, String asEventName)
     PairedVictimEventRegistered = False
   ElseIf asEventName == "pa_PairedKillMQ302DanseDeath"
     PairedDeathEventRegistered = False
+  ElseIf asEventName == "KFVR_PairedKillStart"
+    PairedKillStartEventRegistered = False
+  ElseIf asEventName == "KFVR_PairedBashStart"
+    PairedBashStartEventRegistered = False
   EndIf
   Self.RegisterAnimationEvents() ; #DEBUG_LINE_NO:58
 EndEvent

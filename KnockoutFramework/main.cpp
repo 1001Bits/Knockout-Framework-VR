@@ -8,6 +8,7 @@
 #include <memory>
 #include <shlobj.h>
 
+#include "KFVRAnimationBridge.h"
 #include "KnockoutFramework.h"
 
 #define PLUGIN_VERSION_MAJOR	1
@@ -447,6 +448,12 @@ extern "C" {
 	}
 
 	bool F4SEPlugin_Load(const F4SEInterface * f4se) {
+		if (!KFVRAnimationBridge::Initialize()) {
+			_FATALERROR("ERROR: Fallout 4 VR paired-animation cleanup validation failed.");
+			MessageBoxA(nullptr, "ERROR: Fallout 4 VR 1.2.72 paired-animation cleanup validation failed. Knockout Framework VR was not loaded.", PLUGIN_NAME, MB_ICONASTERISK);
+			return false;
+		}
+
 		if (!g_branchTrampoline.Create(1024 * 64)) {
 			_FATALERROR("ERROR: The trampoline just experienced its last bounce. Wait for a mod update.");
 			return false;
@@ -456,6 +463,13 @@ extern "C" {
 			_FATALERROR("ERROR: Fallout 4 VR damage hook validation failed.");
 			MessageBoxA(nullptr, "ERROR: Fallout 4 VR 1.2.72 damage hook validation failed. Knockout Framework VR was not loaded.", PLUGIN_NAME, MB_ICONASTERISK);
 			return false;
+		}
+
+		if (!papyrusInterface->Register(KFVRAnimationBridge::RegisterPapyrus)) {
+			// The damage hook is live at this point, so keep the DLL resident. The
+			// bridge remains inaccessible and therefore fails closed.
+			_ERROR("ERROR: Could not register KFVRAnimationBridge with Papyrus; paired-animation skipping is disabled.");
+			MessageBoxA(nullptr, "ERROR: Could not register the Knockout Framework VR animation bridge. The native plugin will remain loaded, but player paired-animation skipping is disabled.", PLUGIN_NAME, MB_ICONASTERISK);
 		}
 
 		if (g_messaging != nullptr) g_messaging->RegisterListener(g_pluginHandle, "F4SE", Settings::MessageCallback);

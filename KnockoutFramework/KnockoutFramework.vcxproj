@@ -75,7 +75,8 @@
       <ModuleDefinitionFile>exports.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
-    <ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="KFVRAnimationBridge.cpp" />
     <ClCompile Include="KnockoutFramework.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
@@ -100,6 +101,7 @@
     <None Include="exports.def" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="KFVRAnimationBridge.h" />
     <ClInclude Include="KnockoutFramework.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>

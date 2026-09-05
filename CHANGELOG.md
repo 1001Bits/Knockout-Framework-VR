@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.0-vr1.3
+
+- Skips a synchronized paired finisher at its first animation tick whenever the
+  VR player is either victim or aggressor. The bridge uses a byte-validated
+  native synchronized-scene teardown, preventing the otherwise frozen headset
+  and hands while retaining the configured knockout, death-alternative, or
+  normal-death result.
+- Preserves all 25 conversion paths: the 21 standard variants retain their
+  standard paired-kill outcome mapping, and the four bash variants retain their
+  bash mapping. NPC-vs-NPC paired finishers still play visibly from start to end.
+- Made the early path fail closed. If the native bridge cannot confirm and remove
+  a player-containing synchronized scene, it returns without claiming the event;
+  the existing late annotation remains available to resolve the gameplay result.
+- Documented the exact Bethesda VR precedents. Vault-console activation uses the
+  typoed `FurntiureNoPlayerAnim` keyword, while Pip-Boy pickup follows a direct
+  scripted progression/equip path. Neither is a generic Papyrus event for
+  suppressing paired animations.
+
 ## 1.4.0-vr1.2
 
 - Fixed a deterministic native crash when an eligible unarmed, melee, or bash

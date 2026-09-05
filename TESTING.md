@@ -27,8 +27,34 @@ VR player body and once with FRIK if it is part of the target load order.
 - Confirm time scale, fade, death-event suppression, movement, and weapon input are
   restored after success, failure, reload, and a second KO immediately afterward.
 
+## Player-involved paired finishers (headset required)
+
+- Exercise the player as victim for each of the 21 standard paired-finisher
+  variants. With Player Knockout enabled, confirm the paired scene disappears at
+  its first animation tick without freezing headset tracking or the hands, and
+  that the standard knockout/death-alternative result still completes. Repeat
+  with Player Knockout disabled and confirm the configured normal-death fallback.
+- Exercise the player as victim for each of the four bash variants and repeat the
+  same checks, including preservation of the distinct bash outcome mapping.
+- Exercise the player as aggressor against monitored NPC victims for all 21
+  standard and four bash variants. The player-containing synchronized scene must
+  be skipped immediately, while each NPC still reaches the same knockout or
+  normal-death result selected by the non-VR framework rules.
+- In a diagnostic build, force `SkipPlayerPairedAnimation` to return `False`
+  without modifying executable bytes. Confirm the early handler leaves its
+  pending state clear, the original late animation annotation remains usable,
+  and the configured gameplay result resolves only once.
+- After every successful early teardown, wait beyond both watchdog windows and
+  confirm a queued late marker cannot produce a duplicate knockout, death,
+  inventory transfer, or respawn.
+- Repeat representative victim and aggressor cases with the vanilla VR body and
+  FRIK, in and out of power armor, and after save/load and cell transitions.
+
 ## NPC and interaction paths
 
+- Run NPC-vs-NPC coverage across the same 21 standard and four bash paired
+  variants. Every animation must remain visible from start to end, with no early
+  native teardown, and its existing knockout/death result must remain unchanged.
 - Test normal-hit, VATS, fall, bleedout, unarmed, bash, and all available paired
   finisher knockouts on ordinary NPCs, followers, essential actors, power armor,
   robots, synths, and excluded actors.

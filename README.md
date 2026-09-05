@@ -19,6 +19,11 @@ Papyrus API.
   function bytes before installing the hook.
 - Keeps all 25 paired-finisher victim animations and makes their custom KO/death
   event routing bounded and recoverable.
+- For a paired finisher involving the VR player as victim or aggressor, handles
+  the first animation-tick annotation and uses a byte-validated native
+  synchronized-scene teardown to skip the player presentation. Knockout,
+  death-alternative, and normal-death outcomes still resolve; NPC-vs-NPC paired
+  animations remain fully visual.
 - Makes KO collection admission and removal transactional and adds
   generation-checked timers plus framework-owned state recovery for interrupted
   or stale knockouts.
@@ -39,6 +44,14 @@ Papyrus API.
 The goal is gameplay feature parity. Desktop-only presentation operations such as
 forcing third-person camera cannot exist meaningfully in VR, so their VR equivalent
 uses blackout/fade transitions without removing the underlying feature.
+
+Bethesda's own VR scripts establish the same narrow precedent rather than a
+general animation API. The vault-console path uses the typoed
+`FurntiureNoPlayerAnim` keyword, and the Pip-Boy pickup uses a direct scripted
+progression/equip path instead of the desktop player-furniture sequence. Fallout
+4 VR does not provide a generic Papyrus "no animation" event for paired
+finishers; this port therefore tears down only the synchronized scene containing
+the player.
 
 ## Requirements
 
@@ -77,14 +90,17 @@ requires independently verifying its callsite, target, ABI, and `HitData` layout
 
 The release process compiles the native DLL and modified Papyrus sources, analyzes
 and round-trips every replacement PEX, rebuilds and re-extracts the BA2, verifies
-that all paired-finisher assets remain present and unchanged, and inspects the DLL
-exports and dependencies. A private-desktop SteamVR null-HMD launch has also
+that all 25 paired-finisher assets remain present, that each differs only by one
+verified first-tick VR marker, and that its original late markers and animation
+content remain intact. It also inspects the DLL exports and dependencies. A
+private-desktop SteamVR null-HMD launch has also
 verified F4SEVR loading, the exact VR hook, MO2 virtual-file injection, the ESM/BA2,
 and clean Papyrus linking for Knockout Framework. The null driver exposes no
 tracked controllers, so actual knockout, interaction, respawn, and save/load
 gameplay still requires a headset/controller test before public release. A first
 headset test exposed and precisely diagnosed the F4SEVR settings crash fixed in
-vr1.2; the complete player/NPC matrix below still needs to be repeated.
+vr1.2; the vr1.3 player-victim, player-aggressor, failure-fallback, and NPC parity
+matrix below still needs to be completed on a headset.
 
 ## Licensing and original assets
 
