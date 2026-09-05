@@ -30,7 +30,13 @@ Function RegisterAnimationEvents()
   If EventRegistrationClosing || !Victim || Victim.IsDead()
     Return
   EndIf
-  If !Self.IsBoundGameObjectAvailable() || !Victim.Is3DLoaded()
+  If !Self.IsBoundGameObjectAvailable()
+    ; An unbound effect cannot start a timer, so a retry cannot be scheduled from
+    ; here. Attempting one only logs "Unbound scripts cannot start timers". The
+    ; remaining registration triggers re-run this once the effect is bound again.
+    Return
+  EndIf
+  If !Victim.Is3DLoaded()
     Self.ScheduleAnimationRegistrationRetry()
     Return
   EndIf
@@ -55,7 +61,7 @@ Function RegisterAnimationEvents()
 EndFunction
 
 Function ScheduleAnimationRegistrationRetry()
-  If EventRegistrationClosing || !Victim || Victim.IsDead()
+  If EventRegistrationClosing || !Victim || Victim.IsDead() || !Self.IsBoundGameObjectAvailable()
     Return
   EndIf
   Self.CancelTimer(97)

@@ -32,14 +32,11 @@ Function DispelOrRetry()
     Return
   ElseIf Self.IsBoundGameObjectAvailable()
     Self.Dispel()
-  ElseIf DispelAttempts < 20
-    DispelAttempts += 1
-    Self.StartTimer(0.5, 1)
-  Else
-    ; A temporarily missing bound actor must not make this effect permanent.
-    ; Keep a low-frequency retry alive until the effect can dispel or finishes.
-    Self.StartTimer(5.0, 1)
   EndIf
+  ; No retry is scheduled when the effect is unbound: an unbound script cannot
+  ; start a timer, so the attempt only logs an error and never fires. The effect
+  ; still cannot become permanent, because KFManagerQuestMainScript dispels
+  ; KFKoExitRagdollSpell directly and the effect's own duration ends it.
 EndFunction
 
 Event OnEffectStart(Actor Victim, Actor Aggressor)

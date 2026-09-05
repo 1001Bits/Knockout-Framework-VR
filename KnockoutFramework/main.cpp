@@ -14,7 +14,7 @@
 #define PLUGIN_VERSION_MAJOR	1
 #define PLUGIN_VERSION_MINOR	4
 #define PLUGIN_VERSION_BUILD	0
-#define PLUGIN_VR_REVISION		4
+#define PLUGIN_VR_REVISION		5
 
 #define PLUGIN_NAME		"Knockout Framework VR"
 #define FILE_NAME		"KnockoutFramework"
