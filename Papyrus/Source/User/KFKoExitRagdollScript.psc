@@ -5,7 +5,6 @@ Actor EffectVictim
 Bool GhostOwned
 Bool CompletionSignaled
 Bool EffectFinished
-Int DispelAttempts
 
 ;-- Properties --------------------------------------
 ActorValue Property Paralysis Auto Const
@@ -14,12 +13,20 @@ Keyword Property KFKoExitRagdollKeyword Auto Const
 ;-- Functions ---------------------------------------
 
 Function CompleteRagdollExit()
-  Self.CancelTimer(1)
+  ; The effect can become unbound while a queued stack is still finishing. Keep
+  ; actor-side cleanup available, but never call ActiveMagicEffect natives after
+  ; the binding has gone away.
+  Bool EffectIsBound = Self.IsBoundGameObjectAvailable()
+  If EffectIsBound
+    Self.CancelTimer(1)
+  EndIf
   If CompletionSignaled || !EffectVictim
     Return
   EndIf
   CompletionSignaled = True
-  Self.UnregisterForAnimationEvent(EffectVictim as ObjectReference, "GetUpStart")
+  If EffectIsBound
+    Self.UnregisterForAnimationEvent(EffectVictim as ObjectReference, "GetUpStart")
+  EndIf
   EffectVictim.SetLinkedRef(EffectVictim as ObjectReference, KFKoExitRagdollKeyword)
   If GhostOwned
     EffectVictim.SetGhost(False)
@@ -44,16 +51,19 @@ Event OnEffectStart(Actor Victim, Actor Aggressor)
   CompletionSignaled = False
   EffectFinished = False
   GhostOwned = False
-  DispelAttempts = 0
   If !Victim
-    Self.StartTimer(0.1, 1)
+    If Self.IsBoundGameObjectAvailable()
+      Self.StartTimer(0.1, 1)
+    EndIf
     Return
   EndIf
   Victim.SetValue(Paralysis, 0.0) ; #DEBUG_LINE_NO:12
   If Victim == Game.GetPlayer()
     Victim.SetUnconscious(False)
     Self.CompleteRagdollExit()
-    Self.StartTimer(0.1, 1)
+    If Self.IsBoundGameObjectAvailable()
+      Self.StartTimer(0.1, 1)
+    EndIf
   ElseIf Self.IsBoundGameObjectAvailable() ; #DEBUG_LINE_NO:13
     Self.RegisterForAnimationEvent(Victim as ObjectReference, "GetUpStart") ; #DEBUG_LINE_NO:10
     Victim.PushActorAway(Victim, 0.100000001) ; #DEBUG_LINE_NO:14
@@ -63,8 +73,9 @@ Event OnEffectStart(Actor Victim, Actor Aggressor)
     EndIf
     Self.StartTimer(3.0, 1)
   Else
+    ; CompleteRagdollExit deliberately limits this path to actor-side cleanup.
+    ; An unbound ActiveMagicEffect cannot schedule a retry timer.
     Self.CompleteRagdollExit()
-    Self.StartTimer(0.1, 1)
   EndIf
 EndEvent
 

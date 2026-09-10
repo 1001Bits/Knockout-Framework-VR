@@ -23,7 +23,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="resource.rc" />
+    <ResourceCompile Include="resource_vr.rc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="exports.def" />

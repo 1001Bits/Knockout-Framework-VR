@@ -96,11 +96,15 @@ content remain intact. It also inspects the DLL exports and dependencies. A
 private-desktop SteamVR null-HMD launch has also
 verified F4SEVR loading, the exact VR hook, MO2 virtual-file injection, the ESM/BA2,
 and clean Papyrus linking for Knockout Framework. The null driver exposes no
-tracked controllers, so actual knockout, interaction, respawn, and save/load
-gameplay still requires a headset/controller test before public release. A first
-headset test exposed and precisely diagnosed the F4SEVR settings crash fixed in
-vr1.2; the vr1.3 player-victim, player-aggressor, failure-fallback, and NPC parity
-matrix below still needs to be completed on a headset.
+tracked controllers, so exhaustive knockout, interaction, respawn, and save/load
+coverage still requires headset/controller testing. Headset testing exposed the
+F4SEVR settings crash fixed during development and subsequently confirmed a
+clean release-candidate startup: the paired-scene and difficulty addresses
+validated, the damage hook installed, and the Papyrus animation bridge
+registered. Successful paired
+skip calls are intentionally silent in the native log, so the detailed
+player-victim, player-aggressor, failure-fallback, and NPC parity matrix remains
+the gameplay acceptance checklist.
 
 ## Licensing and original assets
 

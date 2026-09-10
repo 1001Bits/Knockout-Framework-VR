@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.0
+
+- First public Fallout 4 VR release, based on Knockout Framework 1.4.0 and
+  retaining its complete gameplay feature set.
+- Prevents the ragdoll-exit effect from calling timer or animation-registration
+  natives after its ActiveMagicEffect has become unbound. Actor-side completion
+  signaling and owned Ghost cleanup still run, while the manager's existing
+  bounded fallback remains responsible for ending the spell.
+- Incorporates the clean release-candidate headset-test result: Fallout 4 VR
+  1.2.72 accepted the plugin, all paired-scene and difficulty addresses validated, the damage
+  hook installed, and the Papyrus animation bridge registered without a native
+  warning or fail-closed event.
+
+## 1.4.0-vr1.5
+
+- Stops the incoming monitoring effects from attempting to schedule animation
+  registration retries after they have become unbound.
+- Removes the ineffective unbound retry loop from ragdoll-exit dispelling; the
+  manager and the effect duration already provide bounded cleanup.
+
+## 1.4.0-vr1.4
+
+- Adds the VR port revision to the startup log, F4SE plugin version, and Windows
+  DLL version resource so tester reports can identify the exact build.
+
 ## 1.4.0-vr1.3
 
 - Skips a synchronized paired finisher at its first animation tick whenever the

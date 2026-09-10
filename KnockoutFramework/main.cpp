@@ -12,14 +12,13 @@
 #include "KnockoutFramework.h"
 
 #define PLUGIN_VERSION_MAJOR	1
-#define PLUGIN_VERSION_MINOR	4
+#define PLUGIN_VERSION_MINOR	0
 #define PLUGIN_VERSION_BUILD	0
-#define PLUGIN_VR_REVISION		5
 
 #define PLUGIN_NAME		"Knockout Framework VR"
 #define FILE_NAME		"KnockoutFramework"
 #define BGS_PLUGIN_NAME	(std::string)"Knockout Framework.esm"
-#define PLUGIN_VERSION	((PLUGIN_VERSION_MAJOR * 10000) + (PLUGIN_VERSION_MINOR * 100) + PLUGIN_VERSION_BUILD + PLUGIN_VR_REVISION)
+#define PLUGIN_VERSION	((PLUGIN_VERSION_MAJOR * 10000) + (PLUGIN_VERSION_MINOR * 100) + PLUGIN_VERSION_BUILD)
 
 IDebugLog						gLog;
 PluginHandle					g_pluginHandle = kPluginHandle_Invalid;
@@ -409,7 +408,7 @@ extern "C" {
 		sprintf_s(sPath.get(), MAX_PATH, "%s%s.log", "\\My Games\\Fallout4VR\\F4SE\\", FILE_NAME);
 		gLog.OpenRelative(CSIDL_MYDOCUMENTS, sPath.get());
 
-		_MESSAGE("%s library v%d.%d.%d (VR port revision %d, plugin version %d) - Loaded", PLUGIN_NAME, PLUGIN_VERSION_MAJOR, PLUGIN_VERSION_MINOR, PLUGIN_VERSION_BUILD, PLUGIN_VR_REVISION, PLUGIN_VERSION);
+		_MESSAGE("%s library v%d.%d.%d (based on Knockout Framework 1.4.0, plugin version %d) - Loaded", PLUGIN_NAME, PLUGIN_VERSION_MAJOR, PLUGIN_VERSION_MINOR, PLUGIN_VERSION_BUILD, PLUGIN_VERSION);
 
 		info->infoVersion = PluginInfo::kInfoVersion;
 		info->name = FILE_NAME;
