@@ -2,6 +2,10 @@
 
 ## 1.0
 
+- Restores the native compatibility value expected by the original 1.4
+  maintenance script. The public VR release remains version 1.0, while
+  `F4SE.GetPluginVersion("KnockoutFramework")` now correctly reports `10400`
+  so a loaded DLL is not mistaken for a missing or outdated F4SE installation.
 - First public Fallout 4 VR release, based on Knockout Framework 1.4.0 and
   retaining its complete gameplay feature set.
 - Prevents the ragdoll-exit effect from calling timer or animation-registration
